@@ -7,24 +7,24 @@ using System.Threading.Tasks;
 
 namespace _List
 {
-    public class _List
+    public class _List<T> : IEnumerable<T>
     {
         private const int _defaultCapacity = 4;
-        public int[] _items;
+        public T[] _items;
         private int _size;
         private int _version;
-        static readonly int[] _emptyArray = new int[0];
+        static readonly T[] _emptyArray = new T[0];
         public _List()
         {
             _items = _emptyArray;
         }
-        public int this[int index]
+        public T this[int index]
         {
             get
             {
                 if ((uint)index >= (uint)_size)
                 {
-                    throw new ArgumentException("Index was not out of bounds");
+                    throw new ArgumentException();
                 }
                 return _items[index];
             }
@@ -32,7 +32,7 @@ namespace _List
             {
                 if ((uint)index >= (uint)_size)
                 {
-                    throw new ArgumentException("Index was not out of bounds");
+                    throw new ArgumentException();
                 }
                 _items[index] = value;
                 _version++;
@@ -54,7 +54,7 @@ namespace _List
                 {
                     if (value > 0)
                     {
-                        int[] newItems = new int[value];
+                        T[] newItems = new T[value];
                         if (_size > 0)
                         {
                             Array.Copy(_items, 0, newItems, 0, _size);
@@ -75,7 +75,7 @@ namespace _List
                 return _size;
             }
         }
-        public void Add(int item)
+        public void Add(T item)
         {
             if (_size == _items.Length) EnsureCapacity(_size + 1);
             _items[_size++] = item;
@@ -92,58 +92,6 @@ namespace _List
                 Capacity = newCapacity;
             }
         }
-        public Enumerator GetEnumerator()
-        {
-            return new Enumerator(this);
-        }
-        public class Enumerator : IEnumerator
-        {
-            private _List list;
-            private int index;
-            private int version;
-            private int current;
-            public Enumerator(_List list)
-            {
-                this.list = list;
-                index = 0;
-                current = default(int);
-            }
-            public bool MoveNext()
-            {
-                _List localList = list;
-                if ((uint)index < (uint)localList._size)
-                {
-                    current = localList._items[index];
-                    index++;
-                    return true;
-                }
-                return MoveNextRare();
-            }
-            private bool MoveNextRare()
-            {
-                index = list._size + 1;
-                current = default(int);
-                return false;
-            }
-            public object Current
-            {
-                get
-                {
-                    if (index == 0 || index == list._size + 1)
-                    {
-                        throw new InvalidOperationException();
-                    }
-                    return current;
-                }
-            }
-            public void Reset()
-            {
-            }
-        }
-        public void AddRange(IEnumerable<int> collection)
-        {
-            InsertRange(_size, collection);
-        }
         public void Clear()
         {
             if (_size > 0)
@@ -153,26 +101,16 @@ namespace _List
             }
             _version++;
         }
-        public bool Contains(int item)
+        public bool Contains(T element)
         {
-            if ((Object)item == null)
+            foreach (var item in _items)
             {
-                for (int i = 0; i < _size; i++)
-                    if ((Object)_items[i] == null)
-                        return true;
-                return false;
+                if (object.Equals(item, element)) return true;
             }
-            else
-            {
-                EqualityComparer<int> c = EqualityComparer<int>.Default;
-                for (int i = 0; i < _size; i++)
-                {
-                    if (c.Equals(_items[i], item)) return true;
-                }
-                return false;
-            }
+
+            return false;
         }
-        public void CopyTo(int index, int[] array, int arrayIndex, int count)
+        public void CopyTo(int index, T[] array, int arrayIndex, int count)
         {
             if (_size - index < count)
             {
@@ -180,28 +118,28 @@ namespace _List
             }
             Array.Copy(_items, index, array, arrayIndex, count);
         }
-        public void CopyTo(int[] array, int arrayIndex)
+        public void CopyTo(T[] array, int arrayIndex)
         {
             Array.Copy(_items, 0, array, arrayIndex, _size);
         }
-        public int IndexOf(int item)
+        public int IndexOf(T item)
         {
             return Array.IndexOf(_items, item, 0, _size);
         }
-        public int IndexOf(int item, int index)
+        public int IndexOf(T item, int index)
         {
             if (index > _size)
                 throw new ArgumentOutOfRangeException();
             return Array.IndexOf(_items, item, index, _size - index);
         }
-        public int IndexOf(int item, int index, int count)
+        public int IndexOf(T item, int index, int count)
         {
             if (index > _size)
                 throw new ArgumentOutOfRangeException();
             if (count < 0 || index > _size - count) throw new ArgumentOutOfRangeException();
             return Array.IndexOf(_items, item, index, count);
         }
-        public void Insert(int index, int item)
+        public void Insert(int index, T item)
         {
             if ((uint)index > (uint)_size)
             {
@@ -216,110 +154,50 @@ namespace _List
             _size++;
             _version++;
         }
-        public void InsertRange(int index, IEnumerable<int> collection)
+        public void InsertRange(int insertionIndex, T[] arrayToInsert)
         {
-            if (collection == null)
-            {
-                throw new ArgumentNullException();
-            }
-
-            if ((uint)index > (uint)_size)
-            {
+            if (0 < insertionIndex || insertionIndex > _items.Length)
                 throw new ArgumentOutOfRangeException();
+            if (_items.Length + arrayToInsert.Length > _size)
+            {
+                EnsureCapacity(_items.Length + arrayToInsert.Length);
             }
 
-            ICollection<int> c = collection as ICollection<int>;
-            if (c != null)
+            for (int i = 0; i < arrayToInsert.Length; i++)
             {
-                int count = c.Count;
-                if (count > 0)
+                _items[insertionIndex + arrayToInsert.Length + i] = _items[insertionIndex + i];
+                _items[insertionIndex + i] = arrayToInsert[i];
+            }
+
+            _size += arrayToInsert.Length;
+        }
+        public int LastIndexOf(T element)
+        {
+            for (int i = _items.Length - 1; i >= 0; i--)
+            {
+                if (object.Equals(element, _items[i]))
+                    return i;
+            }
+
+            return -1;
+        }
+        public bool Remove(T element)
+        {
+            for (int i = 0; i < _items.Length; i++)
+            {
+                if (object.Equals(element, _items[i]))
                 {
-                    EnsureCapacity(_size + count);
-                    if (index < _size)
+                    for (int j = i + 1; j < _items.Length - 1; j++)
                     {
-                        Array.Copy(_items, index, _items, index + count, _size - index);
+                        _items[j - 1] = _items[j];
                     }
 
-                    if (this == c)
-                    {
-                        Array.Copy(_items, 0, _items, index, index);
-                        Array.Copy(_items, index + count, _items, index * 2, _size - index);
-                    }
-                    else
-                    {
-                        int[] itemsToInsert = new int[count];
-                        c.CopyTo(itemsToInsert, 0);
-                        itemsToInsert.CopyTo(_items, index);
-                    }
-                    _size += count;
+                    _items[_items.Length - 1] = default;
+                    _size--;
+                    return true;
                 }
             }
-            else
-            {
-                using (IEnumerator<int> en = collection.GetEnumerator())
-                {
-                    while (en.MoveNext())
-                    {
-                        Insert(index++, en.Current);
-                    }
-                }
-            }
-            _version++;
-        }
-        public int LastIndexOf(int item)
-        {
-            if (_size == 0)
-            {
-                return -1;
-            }
-            else
-            {
-                return LastIndexOf(item, _size - 1, _size);
-            }
-        }
-        public int LastIndexOf(int item, int index)
-        {
-            if (index >= _size)
-                throw new ArgumentOutOfRangeException();
-            return LastIndexOf(item, index, index + 1);
-        }
-        public int LastIndexOf(int item, int index, int count)
-        {
-            if ((Count != 0) && (index < 0))
-            {
-                throw new ArgumentOutOfRangeException();
-            }
 
-            if ((Count != 0) && (count < 0))
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-
-            if (_size == 0)
-            {
-                return -1;
-            }
-
-            if (index >= _size)
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-
-            if (count > index + 1)
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-
-            return Array.LastIndexOf(_items, item, index, count);
-        }
-        public bool Remove(int item)
-        {
-            int index = IndexOf(item);
-            if (index >= 0)
-            {
-                RemoveAt(index);
-                return true;
-            }
             return false;
         }
         public void RemoveAt(int index)
@@ -333,7 +211,7 @@ namespace _List
             {
                 Array.Copy(_items, index + 1, _items, index, _size - index);
             }
-            _items[_size] = default(int);
+            _items[_size] = default(T);
             _version++;
         }
         public void RemoveRange(int index, int count)
@@ -363,26 +241,26 @@ namespace _List
                 _version++;
             }
         }
-        public void Reverse(int index, int count)
+        public void Reverse()
         {
-            if (index < 0)
+            for (int i = 0; i < _items.Length / 2; i++)
             {
-                throw new ArgumentOutOfRangeException();
+                T tmp = _items[i];
+                _items[i] = _items[_items.Length - 1 - i];
+                _items[_items.Length - 1 - i] = tmp;
             }
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-            if (_size - index < count)
-                throw new ArgumentException();
-            Array.Reverse(_items, index, count);
-            _version++;
         }
-        public int[] ToArray()
+        public T[] ToArray()
         {
-            int[] array = new int[_size];
-            Array.Copy(_items, 0, array, 0, _size);
-            return array;
+            return _items;
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+        public IEnumerator<T> GetEnumerator()
+        {
+            return new Enumerator<T>(_items, _size);
         }
     }
 }
